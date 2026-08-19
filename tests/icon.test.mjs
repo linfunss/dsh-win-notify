@@ -58,8 +58,21 @@ check('every entry is a PNG', entries.every(e => e.png.subarray(0, 8).toString('
 const largest = entries.find(e => e.width === 256)
 const dec = decodePng(largest.png)
 check('256x256 png', dec.width === 256 && dec.height === 256)
-const center = (128 * 256 + 128) * 4
-check('center pixel is DeepSeek blue #4D6BFE', dec.rgba[center] === 77 && dec.rgba[center + 1] === 107 && dec.rgba[center + 2] === 254 && dec.rgba[center + 3] === 255)
+
+// Count opaque pixels by color: brand-blue body and white belly/eye/mouth
+// details should both be present (the official DeepSeek whale style).
+let blue = 0
+let white = 0
+for (let y = 0; y < 256; y++) {
+  for (let x = 0; x < 256; x++) {
+    const o = (y * 256 + x) * 4
+    if (dec.rgba[o + 3] !== 255) continue
+    if (dec.rgba[o] === 77 && dec.rgba[o + 1] === 107 && dec.rgba[o + 2] === 254) blue++
+    else if (dec.rgba[o] === 255 && dec.rgba[o + 1] === 255 && dec.rgba[o + 2] === 255) white++
+  }
+}
+check('blue whale body is rendered', blue > 5000)
+check('white belly/eye/mouth details are rendered', white > 500)
 check('corners transparent', dec.rgba[3] === 0 && dec.rgba[(255 * 256 + 255) * 4 + 3] === 0)
 check('deterministic output', ico.toString('base64') === buildWhaleIcon().toString('base64'))
 

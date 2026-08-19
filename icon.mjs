@@ -13,11 +13,6 @@
 import { deflateSync } from 'node:zlib'
 import { WHALE_PATH } from './whale-path.mjs'
 
-/** DeepSeek brand blue `#4D6BFE`. */
-const WHALE_R = 77
-const WHALE_G = 107
-const WHALE_B = 254
-
 /** Icon sizes emitted into the ICO, one PNG entry each. */
 const ICO_SIZES = [16, 32, 48, 64, 128, 256]
 
@@ -114,12 +109,10 @@ function flatten(curve, segs) {
   return points
 }
 
-/** Flatten the outer whale body (first subpath) into one closed outline. */
-function whaleOutline() {
-  const subpaths = parsePath(WHALE_PATH)
-  const body = subpaths[0]
+/** Flatten one subpath's curves into a closed polygon outline. */
+function subpathOutline(subpath) {
   const outline = []
-  for (const curve of body.curves) {
+  for (const curve of subpath.curves) {
     const flat = flatten(curve, 24)
     if (outline.length === 0) outline.push(...flat)
     else outline.push(...flat.slice(1))
@@ -127,30 +120,23 @@ function whaleOutline() {
   return outline
 }
 
-/** Rasterize a closed polygon into an RGBA buffer via even-odd scanline fill. */
-function rasterize(outline, size) {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  for (const [x, y] of outline) {
-    if (x < minX) minX = x
-    if (x > maxX) maxX = x
-    if (y < minY) minY = y
-    if (y > maxY) maxY = y
-  }
-  const scale = size / Math.max(maxX - minX, maxY - minY)
-  const cx = (minX + maxX) / 2
-  const cy = (minY + maxY) / 2
-  const poly = outline.map(([x, y]) => [(x - cx) * scale + size / 2, (y - cy) * scale + size / 2])
+/** Map an outline into pixel space with a shared transform. */
+function toPixel(outline, size, scale, cx, cy) {
+  return outline.map(([x, y]) => [(x - cx) * scale + size / 2, (y - cy) * scale + size / 2])
+}
+
+/** Paint one closed polygon (in pixel space) into `buf` via even-odd scanline fill. */
+function paint(buf, poly, size, r, g, b) {
   const edges = []
   for (let i = 0; i < poly.length - 1; i++) edges.push([poly[i], poly[i + 1]])
   edges.push([poly[poly.length - 1], poly[0]])
-  const buf = Buffer.alloc(size * size * 4, 0)
   for (let y = 0; y < size; y++) {
     const xs = []
-    for (const [a, b] of edges) {
+    for (const [a, b2] of edges) {
       const y0 = a[1]
-      const y1 = b[1]
+      const y1 = b2[1]
       if ((y0 <= y && y < y1) || (y1 <= y && y < y0)) {
-        xs.push(a[0] + (y - y0) * (b[0] - a[0]) / (y1 - y0))
+        xs.push(a[0] + (y - y0) * (b2[0] - a[0]) / (y1 - y0))
       }
     }
     xs.sort((m, n) => m - n)
@@ -161,15 +147,15 @@ function rasterize(outline, size) {
       if (x1 > size) x1 = size
       for (let x = x0; x < x1; x++) {
         const o = (y * size + x) * 4
-        buf[o] = WHALE_R
-        buf[o + 1] = WHALE_G
-        buf[o + 2] = WHALE_B
-        buf[o + 3] = 255
+        buf[o] = r; buf[o + 1] = g; buf[o + 2] = b; buf[o + 3] = 255
       }
     }
   }
-  return buf
 }
+
+/** Whale body color (DeepSeek brand blue `#4D6BFE`) and detail color (white). */
+const BODY_COLOR = [77, 107, 254]
+const DETAIL_COLOR = [255, 255, 255]
 
 /** Pack PNG entries into a Windows ICO file (PNG-in-ICO, Vista+). */
 function buildIco(pngs) {
@@ -199,10 +185,34 @@ function buildIco(pngs) {
 
 /**
  * Build the multi-size DeepSeek whale icon as an ICO buffer.
+ * The whale body (first subpath) is filled with brand blue, then the belly,
+ * eye, and mouth subpaths are painted white on top — matching the official
+ * DeepSeek logo instead of a flat silhouette.
  * @returns {Buffer} the ICO file contents (16/32/48/64/128/256 px PNG entries).
  */
 export function buildWhaleIcon() {
-  const outline = whaleOutline()
-  const pngs = ICO_SIZES.map(size => encodePng(size, size, rasterize(outline, size)))
+  const subpaths = parsePath(WHALE_PATH)
+  const outlines = subpaths.map(subpathOutline)
+  // All subpaths share the coordinate transform derived from the BODY outline,
+  // so the belly/eye/mouth land on top of the body instead of being scaled
+  // independently to fill the canvas.
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const [x, y] of outlines[0]) {
+    if (x < minX) minX = x
+    if (x > maxX) maxX = x
+    if (y < minY) minY = y
+    if (y > maxY) maxY = y
+  }
+  const cx = (minX + maxX) / 2
+  const cy = (minY + maxY) / 2
+  const pngs = ICO_SIZES.map(size => {
+    const scale = size / Math.max(maxX - minX, maxY - minY)
+    const buf = Buffer.alloc(size * size * 4, 0)
+    paint(buf, toPixel(outlines[0], size, scale, cx, cy), size, ...BODY_COLOR)
+    for (let i = 1; i < outlines.length; i++) {
+      paint(buf, toPixel(outlines[i], size, scale, cx, cy), size, ...DETAIL_COLOR)
+    }
+    return encodePng(size, size, buf)
+  })
   return buildIco(pngs)
 }
