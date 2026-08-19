@@ -1,0 +1,36 @@
+{
+  "name": "dsh-win-notify",
+  "version": "1.0.0",
+  "description": "Windows 11 system notification bridge plugin for DeepSeek Harness: branded toasts (DeepSeek name + whale icon + sound) when user confirmation is needed and when the model finishes running. Zero dependencies, zero build step.",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./icon": "./icon.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.mjs",
+    "icon.mjs",
+    "whale-path.mjs",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "*"
+  },
+  "scripts": {
+    "test": "node tests/icon.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,6 @@
+# dsh-win-notify bundle patch: inserts the win-notify plugin row.
+# Windows-only; the plugin no-ops on other platforms. To enable, add this
+# package to a profile's dsh.profile.bundles, or insert the row yourself.
+- insert:
+    - id: win-notify
+      name: 'dsh-win-notify'
