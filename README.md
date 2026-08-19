@@ -2,6 +2,8 @@
 
 > Windows 11 system notification bridge plugin for [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
 
+[![CI](https://github.com/linfunss/dsh-win-notify/actions/workflows/ci.yml/badge.svg)](https://github.com/linfunss/dsh-win-notify/actions/workflows/ci.yml)
+
 Branded system toasts (DeepSeek name + whale icon + sound) when a tool action needs **user confirmation** and when the **model finishes running** — so you don't have to keep staring at the Harness window.
 
 **Zero runtime dependencies. Zero build step. Plain ESM JavaScript.**
